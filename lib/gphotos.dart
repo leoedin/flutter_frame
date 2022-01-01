@@ -50,8 +50,14 @@ class GPhotoImageBackend implements ImageBackend {
   }
 
   @override
+  String toString() {
+    return "Google Photo Backend for album URL $albumUrl";
+  }
+
+  @override
   Future<List<Image>> getImages(int height) async {
-    return getPhotoUrls(height).then((result) => result.map((url) => Image.network(url)).toList());
+    return getPhotoUrls(height)
+            .then((result) => result.map((url) => Image.network(url)).toList());
   }
 
 }
