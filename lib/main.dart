@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
-import 'package:flutter_image_slideshow/flutter_image_slideshow.dart';
-
+import "image_slideshow_fade.dart";
 import 'gphotos.dart';
+import 'dart:async';
+
 
 void logger(String data) {
   print(data);
@@ -36,7 +37,7 @@ void main() {
 
 class PhotoGalleryApp extends StatelessWidget {
   final String albumUrl;
-  ImageBackend imageBackend;
+  final ImageBackend imageBackend;
   final double delayS;
   final bool shuffle; 
 
@@ -48,61 +49,58 @@ class PhotoGalleryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('Demo'),
-        ),
-        body: PhotoGalleryWidget(imageBackend, delayS, shuffle)));
+      home: PhotoGalleryWidget(imageBackend, delayS, shuffle));
   }
 
 
 }
 
-class PhotoGalleryWidget extends StatelessWidget {
+class PhotoGalleryWidget extends StatefulWidget {
+
   final ImageBackend imageBackend;
   final double delayS;
   final bool shuffle;
 
   const PhotoGalleryWidget(this.imageBackend, this.delayS, this.shuffle, {Key? key}) : super(key: key);
 
+
+  @override
+  State<PhotoGalleryWidget> createState() => _PhotoGalleryWidgetState();
+
+}
+
+class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
+
+  static const int photoHeight = 1024;
+  static const int retryTimeS = 10;
+
+  Future<List<Image>> retryGetImages() {
+    print("Getting a list of photos");
+    return widget.imageBackend.getImages(photoHeight)
+    .then((value) {
+      print("Got a list of ${value.length} images");
+      return value;
+    })
+    .catchError((error) {
+      print("Error in fetching photo list. Retrying in $retryTimeS s: $error");
+      Timer(const Duration(seconds: retryTimeS), () {
+        setState(() {});
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Image>>(
-      future: imageBackend.getImages(1024),
+      future: retryGetImages(),
       builder: (context, AsyncSnapshot<List<Image>> images) {
           if (images.hasData) {
-            return ImageSlideshow(
-            /// Width of the [ImageSlideshow].
-            width: double.infinity,
-
-            /// Height of the [ImageSlideshow].
-            height: 200,
-
-            /// The page to show when first creating the [ImageSlideshow].
-            initialPage: 0,
-
-            /// The color to paint the indicator.
-            indicatorColor: Colors.blue,
-
-            /// The color to paint behind th indicator.
-            indicatorBackgroundColor: Colors.grey,
-
-            /// The widgets to display in the [ImageSlideshow].
-            /// Add the sample image file into the images folder
-            children: images.data!,
-
-            /// Called whenever the page in the center of the viewport changes.
-            onPageChanged: (value) {
-              print('Page changed: $value');
-            },
-
-            /// Auto scroll interval.
-            /// Do not auto scroll with null or 0.
-            autoPlayInterval: 3000,
-
-            /// Loops back to first slide.
-            isLoop: true,
-          );
+            return ImageSlideshowFade(
+              children: images.data!,
+              autoPlayInterval: (widget.delayS * 1000).round(),
+              shuffle: true,
+              onSlideshowComplete: () { setState(() {});},
+            );
           } else {
             return const CircularProgressIndicator();
           }

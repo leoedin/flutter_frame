@@ -33,7 +33,7 @@ class GPhotoImageBackend implements ImageBackend {
   }
 
   // A function to get the phots from an album
-  Future<Iterable<String>> getPhotoUrls(int width) async {
+  Future<Iterable<String>> getPhotoUrls(int height) async {
     // Go to the album URL and fetch its contents
     var body = await client.get(Uri.parse(albumUrl));
 
@@ -44,14 +44,14 @@ class GPhotoImageBackend implements ImageBackend {
       //var nativeWidth = match.group(2);
       //var nativeHeight = match.group(3);
       var baseUrl = match.group(1);
-      return "$baseUrl=w$width";
+      return "$baseUrl=h$height";
     });
     return matches;
   }
 
   @override
-  Future<List<Image>> getImages(int width) async {
-    return getPhotoUrls(width).then((result) => result.map((url) => Image.network(url)).toList());
+  Future<List<Image>> getImages(int height) async {
+    return getPhotoUrls(height).then((result) => result.map((url) => Image.network(url)).toList());
   }
 
 }
