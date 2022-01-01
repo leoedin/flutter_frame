@@ -55,7 +55,11 @@ class PhotoGalleryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: PhotoGalleryWidget(imageBackend, delayS, shuffle));
+      title: "Photo Gallery",
+      home: Center(
+        child: PhotoGalleryWidget(imageBackend, delayS, shuffle)
+        )
+      );
   }
 
 
