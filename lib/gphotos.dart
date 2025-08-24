@@ -1,26 +1,29 @@
-
-
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' show Client;
 
+import 'package:logging/logging.dart';
+
+final log = Logger("PhotoGallery");
 
 abstract class ImageBackend {
   Future<List<Image>> getImages(int width);
 }
 
 class GPhotoImageBackend implements ImageBackend {
-  String albumUrl;
+  List<String> albumUrls;
 
   // An HTTP client - can be replaced for mocking tests
   Client client = Client();
 
-  GPhotoImageBackend(this.albumUrl) {
-    // Check the URL includes the right domains
-    if (!(["photos.app.goo.gl", "goo.gl"].contains(_getHostname(albumUrl)))) {
-      throw ArgumentError("Google Photos Album Link $albumUrl does not contain correct domain");
+  GPhotoImageBackend(this.albumUrls) {
+    for (String album in albumUrls) {
+      // Check the URL includes the right domains
+      if (!(["photos.app.goo.gl", "goo.gl"].contains(_getHostname(album)))) {
+        throw ArgumentError(
+            "Google Photos Album Link $album does not contain correct domain");
+      }
     }
   }
-
 
   String? _getHostname(String url) {
     RegExp exp = RegExp(r":\/\/(www[0-9]?\.)?(.[^/:]+)", caseSensitive: false);
@@ -33,12 +36,13 @@ class GPhotoImageBackend implements ImageBackend {
   }
 
   // A function to get the phots from an album
-  Future<Iterable<String>> getPhotoUrls(int height) async {
+  Future<Iterable<String>> _getAlbumPhotoUrls(String album, int height) async {
     // Go to the album URL and fetch its contents
-    var body = await client.get(Uri.parse(albumUrl));
+    var body = await client.get(Uri.parse(album));
 
     // Parse everything with a regex and extract the base URLs for the images
-    RegExp imrx = RegExp(r'\["(https:\/\/[^\.]+.googleusercontent\.com\/[^"]+)",([0-9]+),([0-9]+)[,\]]');
+    RegExp imrx = RegExp(
+        r'\["(https:\/\/[^\.]+.googleusercontent\.com\/[^"]+)",([0-9]+),([0-9]+)[,\]]');
     var matches = imrx.allMatches(body.body).map((match) {
       // For reference
       //var nativeWidth = match.group(2);
@@ -46,19 +50,35 @@ class GPhotoImageBackend implements ImageBackend {
       var baseUrl = match.group(1);
       return "$baseUrl=h$height";
     });
+
+    log.info("Got ${matches.length} photos from $album");
+
     return matches;
   }
 
   @override
   String toString() {
-    return "Google Photo Backend for album URL $albumUrl";
+    var names = albumUrls.join(", ");
+    return "Google Photo Backend for album URLs $names";
+  }
+
+  Future<List<String>> getPhotoUrls(int height) async {
+    // Get all the URLs from all the albums
+    var urls = Future.wait(albumUrls.map((album) {
+      return _getAlbumPhotoUrls(album, height);
+    }));
+
+    // Join into a single list
+    var urlsReduced = urls.then((data) =>
+        data.map((iter) => iter.toList()).reduce((d1, d2) => d1 + d2));
+
+    return urlsReduced;
   }
 
   @override
   Future<List<Image>> getImages(int height) async {
+    // Get the corresponding images
     return getPhotoUrls(height)
-            .then((result) => result.map((url) => Image.network(url)).toList());
+        .then((result) => result.map((url) => Image.network(url)).toList());
   }
-
 }
-
